@@ -8,10 +8,12 @@ requirements
 How to
 ------
   * copy and edit a config file
-
-    cp config.json.sample config.json
-    vim config.json
+```
+cp config.json.sample config.json
+vim config.json
+```
 
   * run
-
-    phantomjs updater.js
+```
+phantomjs updater.js
+```
