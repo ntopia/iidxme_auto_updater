@@ -20,8 +20,9 @@ function update_basic_data()
 	var start_time = new Date().getTime();
 	console.log( "start basic data updating..." );
 	page.evaluate( function( iidxme_id, iidxme_sha1pass, iidx_djid ) {
-		/* for PhantomJS's weird encoding processing */
-		load = function( url ) {
+
+		/**** for PhantomJS's weird encoding processing ****/
+		load = function(url) {
 			var http = new XMLHttpRequest();
 			http.open("GET", "http://p.eagate.573.jp/game/2dx/21/p/" + url, false);
 			http.responseType = "arraybuffer";
@@ -40,6 +41,14 @@ function update_basic_data()
 				throw "error";
 			}
 			return r;
+		};
+		loadPost = function(url, param) {
+			var http = new XMLHttpRequest();
+			http.open("POST", "http://p.eagate.573.jp/game/2dx/21/p/" + url, false);
+			http.responseType = "arraybuffer";
+			http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+			http.send(param);
+			return new TextDecoder("shift_jis").decode(new Uint8Array(http.response));
 		};
 
 		id = iidxme_id;
