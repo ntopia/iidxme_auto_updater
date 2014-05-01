@@ -3,7 +3,7 @@ iidxme auto updater
 
 requirements
 ------------
-  * PhantomJS 1.9.7
+  * PhantomJS 1.9.x
 
 How to
 ------

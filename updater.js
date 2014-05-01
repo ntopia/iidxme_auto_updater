@@ -2,60 +2,131 @@
 var page = require('webpage').create();
 var config = require( "./config.json" );
 
-console.log( "start!" );
-page.open( "http://iidx.me/$/json/?data=init", function( status ) {
-	if ( status !== "success" ) {
-		console.log( "error1" );
+var iidxme_mids = null;
+var iidxme_login_data = null;
+var iidxme_sha1pass = null;
+
+function update_basic_data()
+{
+	if ( page.injectJs( "./encoding-indexes.js" ) !== true ) {
 		phantom.exit();
 	}
-	console.log( "init data load" );
+	if ( page.injectJs( "./encoding.js" ) !== true ) {
+		phantom.exit();
+	}
 
-	var init_data = eval( page.plainText );
-	var mids = init_data["mids"];
+	var start_time = new Date().getTime();
+	console.log( "start basic data updating..." );
+	page.evaluate( function( iidxme_id, iidxme_sha1pass, iidx_djid ) {
+		/* for PhantomJS's weird encoding processing */
+		load = function( url ) {
+			var http = new XMLHttpRequest();
+			http.open("GET", "http://p.eagate.573.jp/game/2dx/21/p/" + url, false);
+			http.responseType = "arraybuffer";
+			http.send();
+			var r = new TextDecoder("shift_jis").decode(new Uint8Array(http.response));
+			var e = false;
+			if (r.indexOf("error_title") >= 0) {
+				alert("error: maintenance?");
+				e = true;
+			} else if (r.indexOf("login") >= 0) {
+				alert("error: please login");
+				e = true;
+			}
+			if (e) {
+				$("#iidxme").remove();
+				throw "error";
+			}
+			return r;
+		};
 
+		id = iidxme_id;
+		pass = iidxme_sha1pass;
+		iidxid = iidx_djid;
+
+		getDjdata();
+		getExtras();
+	}, config["iidxme_id"], iidxme_sha1pass, iidxme_login_data["iidxid"]);
+
+	setTimeout( function() {
+		console.log( "update basic data success" );
+		phantom.exit();
+	}, 5000 );
+}
+
+function load_iidxme_script()
+{
+	page.includeJs( "http://iidx.me/update.js", function() {
+		console.log( "iidxme script load success" );
+
+		update_basic_data();
+	});
+}
+
+
+function load_eamu_page()
+{
+	var eamu_login_data = encodeURI( "KID=" + config["eamu_id"] + "&pass=" + config["eamu_pass"] + "&OTP=" );
+	page.open( "https://p.eagate.573.jp/gate/p/login.html", "POST", eamu_login_data, function( status ) {
+		if ( status !== "success" ) {
+			console.log( "error3" );
+			phantom.exit();
+		}
+
+		console.log( "eamu login success" );
+		page.open( "http://p.eagate.573.jp/game/2dx/21/p/djdata/status.html", function( status ) {
+			if ( status !== "success" ) {
+				console.log( "error4" );
+				phantom.exit();
+			}
+
+			console.log( "status page load" );
+			load_iidxme_script();
+		});
+	});
+}
+
+function load_iidxme_login_data()
+{
 	page.includeJs( "http://iidx.me/sha1.js", function() {
-		var sha1pass = page.evaluate( function( iidxme_pass ) {
-			return CybozuLabs.SHA1.calc( iidxme_pass );
+		var sha1pass = page.evaluate( function( pass ) {
+			return CybozuLabs.SHA1.calc( pass );
 		}, config["iidxme_pass"] );
+		iidxme_sha1pass = sha1pass;
 
-		page.open( "http://iidx.me/$/json/?data=login&id=" + config["iidxme_id"] + "&pass=" + sha1pass, function( status ) {
+		page.open( "http://iidx.me/$/json/?data=login&id=" + config["iidxme_id"] + "&pass=" + iidxme_sha1pass, function( status ) {
 			if ( status !== "success" ) {
 				console.log( "error2" );
 				phantom.exit();
 			}
 
-			var login_data = eval( page.plainText );
-			console.log( "iidxme login result : " + login_data["result"] );
+			iidxme_login_data = eval( page.plainText );
+			if ( iidxme_login_data["result"] !== true ) {
+				console.log( "iidxme login failed" );
+				phantom.exit();
+			}
 
-			eamu_login_data = encodeURI( "KID=" + config["eamu_id"] + "&pass=" + config["eamu_pass"] + "&OTP=" );
-			page.open( "https://p.eagate.573.jp/gate/p/login.html", "POST", eamu_login_data, function( status ) {
-				if ( status !== "success" ) {
-					console.log( "error3" );
-					phantom.exit();
-				}
-				console.log( "eamu login success" );
-
-				page.open( "http://p.eagate.573.jp/game/2dx/21/p/djdata/status.html", function( status ) {
-					if ( status !== "success" ) {
-						console.log( "error4" );
-						phantom.exit();
-					}
-					console.log( "status page load" );
-
-					page.includeJs( "http://iidx.me/update.js", function() {
-
-						var p = page.evaluate( function( sha1password ) {
-							id = "vvvvvv";
-							pass = sha1password
-							iidxid = "25750625";
-							//getDjdata();
-							return 3;
-						}, sha1pass);
-
-						phantom.exit();
-					});
-				});
-			});
+			console.log( "iidxme login success" );
+			load_eamu_page();
 		});
 	});
-});
+}
+
+function load_iidxme_mids()
+{
+	page.open( "http://iidx.me/$/json/?data=init", function( status ) {
+		if ( status !== "success" ) {
+			console.log( "error1" );
+			phantom.exit();
+		}
+
+		var init_data = eval( page.plainText );
+		iidxme_mids = init_data["mids"];
+
+		console.log( "iidxme mids load success" );
+		load_iidxme_login_data();
+	});
+}
+
+console.log( "start!" );
+load_iidxme_mids();
