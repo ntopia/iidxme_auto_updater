@@ -8,10 +8,12 @@ var iidxme_sha1pass = null;
 
 function update_basic_data()
 {
-	if ( page.injectJs( "./encoding-indexes.js" ) !== true ) {
+	if ( page.injectJs( "./text-encoding/lib/encoding-indexes.js" ) !== true ) {
+		console.log( "decoder script load failed.." );
 		phantom.exit();
 	}
-	if ( page.injectJs( "./encoding.js" ) !== true ) {
+	if ( page.injectJs( "./text-encoding/lib/encoding.js" ) !== true ) {
+		console.log( "decoder script load failed.." );
 		phantom.exit();
 	}
 
