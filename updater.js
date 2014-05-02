@@ -2,9 +2,56 @@
 var page = require('webpage').create();
 var config = require( "./config.json" );
 
-var iidxme_mids = null;
 var iidxme_login_data = null;
 var iidxme_sha1pass = null;
+
+function update_music_data()
+{
+	console.log( "start music data updating..." );
+	page.evaluate( function() {
+
+		/**** for PhantomJS's weird encoding processing ****/
+		load = function(url) {
+			var http = new XMLHttpRequest();
+			http.open("GET", "http://p.eagate.573.jp/game/2dx/21/p/" + url, false);
+			http.responseType = "arraybuffer";
+			http.send();
+			var r = new TextDecoder("shift_jis").decode(new Uint8Array(http.response));
+			var e = false;
+			if (r.indexOf("error_title") >= 0) {
+				alert("error: maintenance?");
+				e = true;
+			} else if (r.indexOf("login") >= 0) {
+				alert("error: please login");
+				e = true;
+			}
+			if (e) {
+				$("#iidxme").remove();
+				throw "error";
+			}
+			return r;
+		};
+		loadPost = function(url, param) {
+			var http = new XMLHttpRequest();
+			http.open("POST", "http://p.eagate.573.jp/game/2dx/21/p/" + url, false);
+			http.responseType = "arraybuffer";
+			http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+			http.send(param);
+			return new TextDecoder("shift_jis").decode(new Uint8Array(http.response));
+		};
+		/**** end ****/
+
+		$("input[name=rd-update][value=all]").attr("checked", true);
+	//	$("input[name=rd-update]:checked").val();
+
+		update();
+	});
+
+	/*	TODO:
+		wait until update finished..
+		but how..?? T_T
+	*/
+}
 
 function update_basic_data()
 {
@@ -17,7 +64,6 @@ function update_basic_data()
 		phantom.exit();
 	}
 
-	var start_time = new Date().getTime();
 	console.log( "start basic data updating..." );
 	page.evaluate( function( iidxme_id, iidxme_sha1pass, iidx_djid ) {
 
@@ -50,19 +96,26 @@ function update_basic_data()
 			http.send(param);
 			return new TextDecoder("shift_jis").decode(new Uint8Array(http.response));
 		};
+		/**** end ****/
 
 		id = iidxme_id;
 		pass = iidxme_sha1pass;
 		iidxid = iidx_djid;
 
+		$.getJSON("http://iidx.me/$/json/?data=init&callback=?", function(data) {
+			$("body").html(data["html"] + $("body").html());
+			mids = data["mids"];
+		});
 		getDjdata();
 		getExtras();
 	}, config["iidxme_id"], iidxme_sha1pass, iidxme_login_data["iidxid"]);
 
 	setTimeout( function() {
+	setTimeout( function() {
 		console.log( "update basic data success" );
-		phantom.exit();
-	}, 5000 );
+		update_music_data();
+	}, 6000 );
+	}, 1 );
 }
 
 function load_iidxme_script()
@@ -123,21 +176,5 @@ function load_iidxme_login_data()
 	});
 }
 
-function load_iidxme_mids()
-{
-	page.open( "http://iidx.me/$/json/?data=init", function( status ) {
-		if ( status !== "success" ) {
-			console.log( "error1" );
-			phantom.exit();
-		}
-
-		var init_data = eval( page.plainText );
-		iidxme_mids = init_data["mids"];
-
-		console.log( "iidxme mids load success" );
-		load_iidxme_login_data();
-	});
-}
-
 console.log( "start!" );
-load_iidxme_mids();
+load_iidxme_login_data();
